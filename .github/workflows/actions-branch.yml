@@ -28,6 +28,14 @@ jobs:
       #     aws-region: eu-west-2
       # - name: Login to Amazon ECR
       #   uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Configure ArgoCD CLI
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: version
+          options: --client
+
       - name: Build, tag, and push image to Amazon ECR
         run: |
           echo ${GITHUB_REF_NAME}
@@ -38,11 +46,13 @@ jobs:
           docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG
           docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG-${GITHUB_SHA::7}
             
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG-${GITHUB_SHA::7}
+          echo "docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG"
+          echo "docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG-${GITHUB_SHA::7}"
         env:
-          ECR_REGISTRY: ${{ secrets.DOCKER_REPO_URL }}
-          ECR_REPOSITORY: "test"
+          # ECR_REGISTRY: ${{ secrets.DOCKER_REPO_URL }}
+          ECR_REGISTYRY: test
+          ECR_REPOSITORY: test
+
       - name: "Deploy"
         # if: github.ref == 'refs/heads/main'
         run: |
@@ -54,3 +64,4 @@ jobs:
           echo "IMAGE_TAG - $TAG-${GITHUB_SHA::7}"
           
           # TODO - use ArgoCD CLI
+          echo "argocd something something"
