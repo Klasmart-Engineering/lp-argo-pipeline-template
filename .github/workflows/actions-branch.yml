@@ -50,7 +50,7 @@ jobs:
           echo "docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG-${GITHUB_SHA::7}"
         env:
           # ECR_REGISTRY: ${{ secrets.DOCKER_REPO_URL }}
-          ECR_REGISTYRY: test
+          ECR_REGISTRY: test
           ECR_REPOSITORY: test
 
       - name: "Deploy"
