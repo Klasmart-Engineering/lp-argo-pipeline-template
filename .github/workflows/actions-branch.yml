@@ -86,6 +86,8 @@ jobs:
           echo "TAG    : ${TAG}"
           echo "COMMIT : ${GITHUB_SHA::7}"
           echo "IMAGE  : $DEPLOY_TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "DEPLOY_TAG=$DEPLOY_TAG" >> $GITHUB_ENV
 
       - name: Log into ArgoCD
         uses: clowdhaus/argo-cd-action/@main
@@ -110,7 +112,7 @@ jobs:
         with:
           version: 2.2.5
           command: app
-          options: set ${{ env.ARGOCD_APP }} -p ${{ env.ARGOCD_APP_CHART_TAG_PATH }}=$DEPLOY_TAG
+          options: set ${{ env.ARGOCD_APP }} -p ${{ env.ARGOCD_APP_CHART_TAG_PATH }}=${{ env.DEPLOY_TAG }}
 
       - name: Sync the app now
         uses: clowdhaus/argo-cd-action/@main
