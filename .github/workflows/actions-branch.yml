@@ -35,22 +35,6 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Set up the kubeconfig file in GHA secrets first
-      - name: Set up kubernetes config file
-        run: |
-          mkdir -p '${{ github.workspace }}/.kube' \
-            && echo '${{ secrets.TOOLS_KUBECONFIG_CONTENT_B64 }}' | base64 -d > $TOOLS_KUBECONFIG
-
-      - name: Test kubernetes connection
-        run: 'kubectl version --kubeconfig $TOOLS_KUBECONFIG'
-
-      - name: Configure ArgoCD CLI
-        uses: clowdhaus/argo-cd-action/@main
-        with:
-          version: 2.2.5
-          command: version
-          options: --client
-
       - name: Build, tag, and push image to Amazon ECR
         run: |
           echo ${GITHUB_REF_NAME}
@@ -70,11 +54,27 @@ jobs:
     # Put deploy conditions in here.
     # if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
     env:
-        # Due to a Teleport bug, we are using K8 port forwarding for now.
+        # Due to a Teleport bug, we are using K8 port forwarding to connect to ArgoCD for now.
         TOOLS_KUBECONFIG: '${{ github.workspace }}/.kube/tools-kubeconfig.yml'
         ARGOCD_SERVER: localhost:8080
         ARGOCD_OPTS: --grpc-web --insecure --plaintext
     steps:
+      # Set up the kubeconfig file in GHA secrets first
+      - name: Set up kubernetes config file
+        run: |
+          mkdir -p '${{ github.workspace }}/.kube' \
+            && echo '${{ secrets.TOOLS_KUBECONFIG_CONTENT_B64 }}' | base64 -d > $TOOLS_KUBECONFIG
+
+      - name: Test kubernetes connection
+        run: 'kubectl version --kubeconfig $TOOLS_KUBECONFIG'
+
+      - name: Configure ArgoCD CLI
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: version
+          options: --client
+
       - name: Set up kubernetes port-forwarding connection to tools cluster
         run: 'kubectl port-forward -n argocd svc/argocd-server 8080:80 --kubeconfig $TOOLS_KUBECONFIG &'
 
