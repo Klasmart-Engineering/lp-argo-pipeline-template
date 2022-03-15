@@ -98,7 +98,7 @@ jobs:
         with:
           version: 2.2.5
           command: login
-          options: $ARGOCD_SERVER
+          options: ${{ env.ARGOCD_SERVER }}
 
       - name: List ArgoCD apps
         # if: github.ref == 'refs/heads/main'
