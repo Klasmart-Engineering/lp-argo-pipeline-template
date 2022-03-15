@@ -122,3 +122,12 @@ jobs:
           version: 2.2.5
           command: app
           options: sync ${{ env.ARGOCD_APP }} --timeout 300
+
+      - name: Update deploy status
+        if: always()
+        uses: ouzi-dev/commit-status-updater@v1.1.0
+        with:
+          status: "${{ job.status }}"
+          url: https://argocd.kidsloop.teleport.sh/applications/${{ env.ARGOCD_APP }}
+          description: "Deployment status in ArgoCD"
+          name: "ArgoCD"
