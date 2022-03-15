@@ -123,11 +123,20 @@ jobs:
           command: app
           options: sync ${{ env.ARGOCD_APP }} --timeout 300
 
-      - name: Update deploy status
+      - name: Update ArgoCD deploy status
         if: always()
         uses: ouzi-dev/commit-status-updater@v1.1.0
         with:
           status: "${{ job.status }}"
           url: https://argocd.kidsloop.teleport.sh/applications/${{ env.ARGOCD_APP }}
-          description: "Deployment status in ArgoCD"
+          description: "Click to view the app in ArgoCD"
           name: "ArgoCD"
+
+      - name: Show deploy location note
+        if: always()
+        uses: ouzi-dev/commit-status-updater@v1.1.0
+        with:
+          status: "${{ job.status }}"
+          url: https://hub.landing-zone.kidsloop.live
+          description: "Click to test in the 'Landing Zone' environment"
+          name: "Landing Zone"
