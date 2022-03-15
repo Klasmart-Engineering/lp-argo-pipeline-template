@@ -99,10 +99,10 @@ jobs:
           version: 2.2.5
           command: login
           options: >
-            ${{ env.ARGOCD_SERVER }}
+            '${{ env.ARGOCD_SERVER }}'
             --server
-            --username ${{ secrets.ARGOCD_AUTH_USERNAME }}
-            --password ${{ secrets.ARGOCD_AUTH_PASSWORD }}
+            --username '${{ secrets.ARGOCD_AUTH_USERNAME }}'
+            --password '${{ secrets.ARGOCD_AUTH_PASSWORD }}'
             --grpc-web --insecure --plaintext
 
       - name: List ArgoCD apps
