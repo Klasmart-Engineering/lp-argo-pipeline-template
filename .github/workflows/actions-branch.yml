@@ -14,10 +14,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  # teleport:
+  #   runs-on: quay.io/gravitational/teleport:9
+  #   steps:
+  #     - name: Get certs from Teleport
+  #       run: |
+  #         echo "TODO... generate certs"
+
   build:
     runs-on: ubuntu-latest
     # needs: test
     # if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    env:
+        # Due to 
+        TOOLS_KUBECONFIG: '${{ github.workspace }}/.kube/tools-kubeconfig.yml'
+        ARGOCD_SERVER: localhost:8080
+        ARGOCD_OPTS: --grpc-web --insecure --plaintext
+
     steps:
       - uses: actions/checkout@v2
       # - name: Configure AWS credentials
@@ -28,6 +41,15 @@ jobs:
       #     aws-region: eu-west-2
       # - name: Login to Amazon ECR
       #   uses: aws-actions/amazon-ecr-login@v1
+
+      # Set up the kubeconfig file in GHA secrets first
+      - name: Set up kubernetes config file
+        run: |
+          mkdir -p '${{ github.workspace }}/.kube' \
+            && echo '${{ secrets.TOOLS_KUBECONFIG_CONTENT_B64 }}' | base64 -d > $TOOLS_KUBECONFIG
+
+      - name: Test kubernetes connection
+        run: 'kubectl version --kubeconfig $TOOLS_KUBECONFIG'
 
       - name: Configure ArgoCD CLI
         uses: clowdhaus/argo-cd-action/@main
@@ -53,7 +75,10 @@ jobs:
           ECR_REGISTRY: test
           ECR_REPOSITORY: test
 
-      - name: "Deploy"
+      - name: Set up kubernetes port-forwarding connection to tools cluster
+        run: 'kubectl port-forward -n argocd svc/argocd-server 8080:80 --kubeconfig $TOOLS_KUBECONFIG &'
+
+      - name: "Deploy to ArgoCD"
         # if: github.ref == 'refs/heads/main'
         run: |
           export BRANCH_TAG=$(echo "${GITHUB_REF_NAME}" | sed -E 's/([^0-9a-zA-Z]+)/-/g' | awk '{print tolower($0)}')
@@ -65,3 +90,20 @@ jobs:
           
           # TODO - use ArgoCD CLI
           echo "argocd something something"
+
+      - name: Log into ArgoCD
+        # if: github.ref == 'refs/heads/main'
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: login
+          options: ''
+ 
+      - name: List ArgoCD apps
+        # if: github.ref == 'refs/heads/main'
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: app
+          options: ls
+ 
