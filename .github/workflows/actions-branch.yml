@@ -92,13 +92,13 @@ jobs:
           echo "argocd something something"
           curl -v http://localhost:8080
 
-      - name: Log into ArgoCD
-        # if: github.ref == 'refs/heads/main'
-        uses: clowdhaus/argo-cd-action/@main
-        with:
-          version: 2.2.5
-          command: login
-          options: ${{ env.ARGOCD_SERVER }}
+      # - name: Log into ArgoCD
+      #   # if: github.ref == 'refs/heads/main'
+      #   uses: clowdhaus/argo-cd-action/@main
+      #   with:
+      #     version: 2.2.5
+      #     command: login
+      #     options: ${{ env.ARGOCD_SERVER }}
 
       - name: List ArgoCD apps
         # if: github.ref == 'refs/heads/main'
@@ -106,4 +106,4 @@ jobs:
         with:
           version: 2.2.5
           command: app
-          options: ls
+          options: list
