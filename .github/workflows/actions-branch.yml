@@ -1,5 +1,12 @@
 name: CI Pipeline for Branches
 
+env:
+  # Please customize these as required...
+  ECR_REGISTRY: test
+  ECR_REPOSITORY: test
+  ARGOCD_APP: uk-landingzone-user-service
+  ARGOCD_APP_CHART_TAG_PATH: userService.tag
+
 on:
   push:
     branches:
@@ -14,33 +21,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  # teleport:
-  #   runs-on: quay.io/gravitational/teleport:9
-  #   steps:
-  #     - name: Get certs from Teleport
-  #       run: |
-  #         echo "TODO... generate certs"
-
   build:
     runs-on: ubuntu-latest
-    # needs: test
-    # if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-    env:
-        # Due to 
-        TOOLS_KUBECONFIG: '${{ github.workspace }}/.kube/tools-kubeconfig.yml'
-        ARGOCD_SERVER: localhost:8080
-        ARGOCD_OPTS: --grpc-web --insecure --plaintext
-
     steps:
       - uses: actions/checkout@v2
-      # - name: Configure AWS credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: eu-west-2
-      # - name: Login to Amazon ECR
-      #   uses: aws-actions/amazon-ecr-login@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
       # Set up the kubeconfig file in GHA secrets first
       - name: Set up kubernetes config file
@@ -70,30 +63,31 @@ jobs:
             
           echo "docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG"
           echo "docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BRANCH_TAG-${GITHUB_SHA::7}"
-        env:
-          # ECR_REGISTRY: ${{ secrets.DOCKER_REPO_URL }}
-          ECR_REGISTRY: test
-          ECR_REPOSITORY: test
 
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # Put deploy conditions in here.
+    # if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    env:
+        # Due to a Teleport bug, we are using K8 port forwarding for now.
+        TOOLS_KUBECONFIG: '${{ github.workspace }}/.kube/tools-kubeconfig.yml'
+        ARGOCD_SERVER: localhost:8080
+        ARGOCD_OPTS: --grpc-web --insecure --plaintext
+    steps:
       - name: Set up kubernetes port-forwarding connection to tools cluster
         run: 'kubectl port-forward -n argocd svc/argocd-server 8080:80 --kubeconfig $TOOLS_KUBECONFIG &'
 
-      - name: "Deploy to ArgoCD"
-        # if: github.ref == 'refs/heads/main'
+      - name: Configure tags
         run: |
           export BRANCH_TAG=$(echo "${GITHUB_REF_NAME}" | sed -E 's/([^0-9a-zA-Z]+)/-/g' | awk '{print tolower($0)}')
           if test -z "$BRANCH_TAG"; then export TAG=commit; else export TAG=$BRANCH_TAG;fi
-
-          echo "TAG - ${TAG}"
-          echo "COMMIT_TAG - ${GITHUB_SHA::7}"
-          echo "IMAGE_TAG - $TAG-${GITHUB_SHA::7}"
-          
-          # TODO - use ArgoCD CLI
-          echo "argocd something something"
-          curl -v http://localhost:8080
+          export DEPLOY_TAG=$TAG-${GITHUB_SHA::7}
+          echo "TAG    : ${TAG}"
+          echo "COMMIT : ${GITHUB_SHA::7}"
+          echo "IMAGE  : $DEPLOY_TAG"
 
       - name: Log into ArgoCD
-        # if: github.ref == 'refs/heads/main'
         uses: clowdhaus/argo-cd-action/@main
         with:
           version: 2.2.5
@@ -102,12 +96,25 @@ jobs:
             '${{ env.ARGOCD_SERVER }}'
             --username '${{ secrets.ARGOCD_AUTH_USERNAME }}'
             --password '${{ secrets.ARGOCD_AUTH_PASSWORD }}'
-            --grpc-web --insecure --plaintext
+            ${{ env.ARGOCD_OPTS }}
 
-      - name: List ArgoCD apps
-        # if: github.ref == 'refs/heads/main'
+      - name: Show ArgoCD app info
         uses: clowdhaus/argo-cd-action/@main
         with:
           version: 2.2.5
           command: app
-          options: list
+          options: get ${{ env.ARGOCD_APP }}
+
+      - name: Set ArgoCD app tag to build output
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: app
+          options: set ${{ env.ARGOCD_APP }} -p ${{ env.ARGOCD_APP_CHART_TAG_PATH }}=$DEPLOY_TAG
+
+      - name: Sync the app now
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.2.5
+          command: app
+          options: sync ${{ env.ARGOCD_APP }}
