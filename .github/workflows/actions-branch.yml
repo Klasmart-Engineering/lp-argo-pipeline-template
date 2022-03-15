@@ -100,7 +100,6 @@ jobs:
           command: login
           options: >
             '${{ env.ARGOCD_SERVER }}'
-            --server
             --username '${{ secrets.ARGOCD_AUTH_USERNAME }}'
             --password '${{ secrets.ARGOCD_AUTH_PASSWORD }}'
             --grpc-web --insecure --plaintext
